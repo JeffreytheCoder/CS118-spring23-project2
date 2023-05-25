@@ -168,6 +168,7 @@ class Executor:
                 err = self.conns[act['port']].send(pkt.serialize())
                 if err is not None:
                     return err
+                aio.sleep(0.05)  # 50ms gap
             elif act['kind'] == 'expect':
                 pkt = Packet.from_json(act)
                 self.conns[act['port']].expect(pkt.serialize())
