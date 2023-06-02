@@ -155,6 +155,7 @@ class Packet:
         ip_hdr[IP_HDR_LEN_MIN:] = ip_opt
         ip_chksum = Checksum()
         ip_chksum.add(memoryview(ip_hdr))
+        print(ip_chksum)
         if self.ip_checksum < 0:
             struct.pack_into('!H', ip_hdr, 10, ip_chksum.finish())
         else:
@@ -171,10 +172,12 @@ class Packet:
         :return: the packet.
         """
         return cls(obj['src_ip'], obj['src_port'], obj['dst_ip'], obj['dst_port'],
-                   obj['proto'], obj['payload'], obj.get('ttl', 64), obj.get('seq', 0),
-                   obj.get('ack', 0), obj.get('flag', 0), obj.get('rwnd', 2048),
+                   obj['proto'], obj['payload'], obj.get(
+                       'ttl', 64), obj.get('seq', 0),
+                   obj.get('ack', 0), obj.get(
+                       'flag', 0), obj.get('rwnd', 2048),
                    obj.get('ip_options_b64', ''), obj.get('ip_checksum', -1), obj.get('trans_checksum', -1))
-    
+
     def print_hex(self):
         print_hex(self.serialize())
 
@@ -218,7 +221,8 @@ def main():
     for act in actions:
         if act['kind'] == 'send' or act['kind'] == 'expect':
             kind = 'SEND' if act['kind'] == 'send' else 'RECV'
-            print(f'================== {kind} @@ {act["port"]:02} ==================')
+            print(
+                f'================== {kind} @@ {act["port"]:02} ==================')
             Packet.from_json(act).print_hex()
             print(f'================== ========== ==================\n')
         elif act['kind'] == 'check':
