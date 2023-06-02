@@ -24,7 +24,7 @@ inline void checkFailure(int status, string msg) {
 }
 
 inline unsigned short compute_checksum(unsigned short *addr, unsigned int count) {
-  unsigned long sum = 0;
+  register unsigned long sum = 0;
   while (count > 1) {
     sum += * addr++;
     count -= 2;
@@ -65,7 +65,7 @@ inline vector<string> split(string str, char delimiter) {
 }
 
 inline unsigned short compute_tcp_checksum(struct iphdr *pIph, unsigned short *ipPayload) {
-    unsigned long sum = 0;
+    register unsigned long sum = 0;
     unsigned short tcpLen = ntohs(pIph->tot_len) - (pIph->ihl<<2);
     struct tcphdr *tcphdrp = (struct tcphdr*)(ipPayload);
     //add the pseudo header 
@@ -105,7 +105,7 @@ inline unsigned short compute_tcp_checksum(struct iphdr *pIph, unsigned short *i
 
 
 inline unsigned short compute_udp_checksum(struct iphdr *pIph, unsigned short *udphdr) {
-    unsigned long sum = 0;
+    register unsigned long sum = 0;
     struct udphdr *udphdrp = (struct udphdr*)(udphdr);
     unsigned short udpLen = htons(udphdrp->len);
     //printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~udp len=%dn", udpLen);
