@@ -26,7 +26,7 @@ inline void checkFailure(int status, string msg)
 
 inline unsigned short computeChecksum(unsigned short *addr, unsigned int count)
 {
-    register unsigned long sum = 0;
+    unsigned long sum = 0;
     unsigned short *end = addr + count / 2; // point to end of data
 
     // Process each pair of bytes
@@ -83,7 +83,7 @@ inline vector<string> split(string str, char delimiter)
 inline unsigned short computeTcpChecksum(struct iphdr *pIph, unsigned short *ipPayload)
 {
     // Initialize sum
-    register unsigned long sum = 0;
+    unsigned long sum = 0;
 
     // Calculate the TCP length
     unsigned short tcpLen = ntohs(pIph->tot_len) - (pIph->ihl << 2);
@@ -138,7 +138,7 @@ inline unsigned short computeTcpChecksum(struct iphdr *pIph, unsigned short *ipP
 inline unsigned short computeUdpChecksum(struct iphdr *pIph, unsigned short *udphdr)
 {
     // Initialize sum variable
-    register unsigned long sum = 0;
+    unsigned long sum = 0;
 
     // Point to the UDP header
     struct udphdr *udpHeaderPtr = (struct udphdr *)(udphdr);
