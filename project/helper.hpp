@@ -100,14 +100,17 @@ inline unsigned short computeTcpChecksum(struct iphdr *pIph, unsigned short *ipP
     // Point to the TCP header
     struct tcphdr *tcpHeader = (struct tcphdr *)(ipPayload);
 
+    // Lambda function to split and add IP
+    auto ipSum = [](unsigned long ip) -> unsigned long {
+        return ((ip >> 16) & 0xFFFF) + (ip & 0xFFFF);
+    };
+
     // Add pseudo header
     // Add source IP
-    sum += (pIph->saddr >> 16) & 0xFFFF;
-    sum += (pIph->saddr) & 0xFFFF;
+    sum += ipSum(pIph->saddr);
 
     // Add destination IP
-    sum += (pIph->daddr >> 16) & 0xFFFF;
-    sum += (pIph->daddr) & 0xFFFF;
+    sum += ipSum(pIph->daddr);
 
     // Add protocol and reserved: 6
     sum += htons(IPPROTO_TCP);
@@ -155,14 +158,17 @@ inline unsigned short computeUdpChecksum(struct iphdr *pIph, unsigned short *udp
     // Obtain the UDP length
     unsigned short udpLen = htons(udpHeaderPtr->len);
 
+    // Lambda function to split and add IP
+    auto ipSum = [](unsigned long ip) -> unsigned long {
+        return ((ip >> 16) & 0xFFFF) + (ip & 0xFFFF);
+    };
+
     // Add pseudo header
     // Add source IP
-    sum += (pIph->saddr >> 16) & 0xFFFF;
-    sum += (pIph->saddr) & 0xFFFF;
+    sum += ipSum(pIph->saddr);
 
     // Add destination IP
-    sum += (pIph->daddr >> 16) & 0xFFFF;
-    sum += (pIph->daddr) & 0xFFFF;
+    sum += ipSum(pIph->daddr);
 
     // Add protocol and reserved: 17
     sum += htons(IPPROTO_UDP);
