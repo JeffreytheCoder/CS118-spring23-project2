@@ -10,7 +10,7 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <sstream>
-// include setw
+#include <numeric>
 #include <iomanip>
 
 using namespace std;
@@ -26,37 +26,46 @@ inline void checkFailure(int status, string msg)
 
 inline unsigned short computeChecksum(unsigned short *addr, unsigned int count)
 {
-    unsigned long sum = 0;
-    unsigned short *end = addr + count / 2; // point to end of data
+    // Initialize sum
+    unsigned long totalSum = 0;
 
-    // Process each pair of bytes
-    for (; addr < end; ++addr)
-    {
-        sum += *addr;
-    }
+    // Calculate end address of the data
+    auto addrEnd = addr + count / 2;
 
-    // Process remaining byte, if any
+    // Compute sum using accumulate function from STL
+    totalSum = std::accumulate(addr, addrEnd, totalSum);
+
+    // If count is odd, add the last byte after padding
     if (count % 2)
     {
-        sum += *addr & htons(0xFF00);
+        totalSum += (*addrEnd & htons(0xFF00));
     }
 
     // Fold 32-bit sum to 16 bits
-    while (sum >> 16)
+    while (totalSum >> 16)
     {
-        sum = (sum & 0xffff) + (sum >> 16);
+        totalSum = (totalSum & 0xffff) + (totalSum >> 16);
     }
 
     // Compute one's complement
-    sum = ~sum;
-    return (unsigned short)sum;
+    totalSum = ~totalSum;
+
+    // Return the checksum
+    return static_cast<unsigned short>(totalSum);
 }
 
 inline unsigned short computeIpChecksum(struct iphdr *iphdrp)
 {
+    // Reset the checksum in IP header
     iphdrp->check = 0;
+
+    // Calculate checksum using previously defined function
     unsigned short checksum = computeChecksum((unsigned short *)iphdrp, iphdrp->ihl << 2);
+
+    // Assign the computed checksum back to the IP header
     iphdrp->check = checksum;
+
+    // Return the checksum
     return checksum;
 }
 
