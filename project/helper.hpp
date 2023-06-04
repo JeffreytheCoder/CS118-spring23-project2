@@ -121,21 +121,18 @@ inline unsigned short computeTcpChecksum(struct iphdr *pIph, unsigned short *ipP
     // Reset the checksum in TCP header
     tcpHeader->check = 0;
 
-    // Add IP payload content
-    for(; tcpLen > 1; tcpLen -= 2)
-    {
-        sum += *ipPayload++;
-    }
+    // Add IP payload
+    auto startPayload = ipPayload;
+    auto endPayload = startPayload + tcpLen / 2;
+    sum += std::accumulate(startPayload, endPayload, 0);
 
     // If there is any leftover byte, add it into the sum
-    if (tcpLen > 0)
-    {
-        sum += ((*ipPayload) & htons(0xFF00));
+    if (tcpLen % 2) {
+        sum += ((*endPayload) & htons(0xFF00));
     }
 
     // Fold 32-bit sum to 16 bits
-    while (sum >> 16)
-    {
+    while (sum >> 16) {
         sum = (sum & 0xffff) + (sum >> 16);
     }
     sum = ~sum;
@@ -179,21 +176,18 @@ inline unsigned short computeUdpChecksum(struct iphdr *pIph, unsigned short *udp
     // Reset the checksum in UDP header
     udpHeaderPtr->check = 0;
 
-    // Add IP payload content
-    for(; udpLen > 1; udpLen -= 2)
-    {
-        sum += *udphdr++;
-    }
+        // Add IP payload
+    auto startPayload = udphdr;
+    auto endPayload = startPayload + udpLen / 2;
+    sum += std::accumulate(startPayload, endPayload, 0);
 
     // If there is any leftover byte, add it into the sum
-    if (udpLen > 0)
-    {
-        sum += ((*udphdr) & htons(0xFF00));
+    if (udpLen % 2) {
+        sum += ((*endPayload) & htons(0xFF00));
     }
 
     // Fold 32-bit sum to 16 bits
-    while (sum >> 16)
-    {
+    while (sum >> 16) {
         sum = (sum & 0xffff) + (sum >> 16);
     }
     sum = ~sum;
