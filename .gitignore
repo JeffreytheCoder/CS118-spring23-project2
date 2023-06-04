@@ -9,3 +9,5 @@ __pycache__
 
 /project/server
 /project/client
+
+.DS_Store

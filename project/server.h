@@ -28,7 +28,7 @@ class Packet {
             protocol_id = (unsigned int)ip_header->protocol;
             src_ip = inet_ntoa(*(struct in_addr *)&ip_header->saddr);
             dest_ip = inet_ntoa(*(struct in_addr *)&ip_header->daddr);
-
+            ttl = (unsigned int)ip_header->ttl;
             if (protocol_id == UDP_PROTOCOL_ID) {
                 udp_header = (struct udphdr *)(buffer + ip_header->ihl * 4);
                 if (checkCorruptedUDP(ip_header,(unsigned short *)(udp_header))) {
@@ -89,16 +89,17 @@ class Packet {
 
         void compute_payload_checksum() {
             if (udp_header != NULL) {
-                compute_udp_checksum(ip_header, (unsigned short *)udp_header);
+                computeUdpChecksum(ip_header, (unsigned short *)udp_header);
             } else if (tcp_header != NULL) {
-                compute_tcp_checksum(ip_header, (unsigned short *)tcp_header);
+                cout << "tcp ttl?" << (unsigned int)tcp_header->th_off << endl;
+                computeTcpChecksum(ip_header, (unsigned short *)tcp_header);
             }
         }
 
         void recomputeTTL() {
             cout << "checksum in decrease TTL before: " << ntohs(ip_header->check) << endl;
             decreaseTTL();
-            compute_ip_checksum(ip_header);
+            computeIpChecksum(ip_header);
             compute_payload_checksum();
             cout << "checksum in decrease TTL after: " << ntohs(ip_header->check) << endl;
         }
@@ -115,6 +116,7 @@ class Packet {
         string dest_ip;
         unsigned int src_port;
         unsigned int dest_port;
+        int ttl;
 };
 
 
@@ -147,6 +149,7 @@ class Server {
         int server_fd;
         struct sockaddr_in server_addr;
         unordered_map<string, int> ip_fd_map;
+        string lanIPRange;
 };
 
 struct ThreadArgs {
@@ -168,3 +171,41 @@ struct ThreadArgs {
 // cout << "checksum in decrease TTL after: " << ntohs(ip_header->check) << endl;
 // cout << "udp checksum after: " << ntohs(packet.udp_header->check) << endl;
 // cout << bufferToHex(buffer, bytes_received) << endl;
+
+
+//  if (Count(server->lanIPRange, src_ip) && Count(server->lanIPRange, dest_ip)) {
+//                 int dest_fd = server->ip_fd_map[dest_ip];
+//                 packet.recomputeTTL();
+//                 write(dest_fd, buffer, bytes_received);
+//             } else if (Count(server->lanIPRange, src_ip) && !Count(server->lanIPRange, dest_ip)) {
+//                 cout << "here we are, in lan to wan world!!!" << endl;
+//                 string lan_IP_Port = src_ip + ":" + to_string(packet.src_port);
+//                 server->detectNewMapping(lan_IP_Port);
+//                 string wan_IP_Port = server->LANtoWAN[lan_IP_Port];
+//                 cout << wan_IP_Port << endl;
+//                 vector<string> wan_IP_Port_split = split(wan_IP_Port, ':');
+//                 int dest_fd = server->ip_fd_map[server->server_wanIp];
+//                 packet.replaceSource(wan_IP_Port_split);
+//                 packet.recomputeTTL();
+//                 cout << bufferToHex(buffer, bytes_received) << endl;
+//                 write(dest_fd, buffer, bytes_received);
+//             } else if (!Count(server->lanIPRange, src_ip)&& dest_ip == server->server_wanIp) {
+//                 cout << "holly we are in the outer to inner world!!!" << endl;
+//                 string wan_IP_Port = server->server_wanIp + ":" + to_string(packet.dest_port);
+//                 if (!server->WANtoLAN.count(wan_IP_Port)) {
+//                     cout << wan_IP_Port << endl;
+//                     cout << "no fk why......" << endl;
+//                     continue;
+//                 }
+//                 string lan_IP_Port = server->WANtoLAN[wan_IP_Port];
+//                 cout << lan_IP_Port << endl;
+//                 vector<string> lan_IP_Port_split = split(lan_IP_Port, ':');
+//                 int dest_fd = server->ip_fd_map[lan_IP_Port_split[0]];
+//                 packet.replaceDestination(lan_IP_Port_split);
+//                 packet.recomputeTTL();
+//                 cout << bufferToHex(buffer, bytes_received) << endl;
+//                 write(dest_fd, buffer, bytes_received);
+//             } else {
+//                 cout << "no fk why??????......" << endl;
+//                 continue;
+//             }
