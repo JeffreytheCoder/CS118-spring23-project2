@@ -89,17 +89,17 @@ class Packet {
 
         void compute_payload_checksum() {
             if (udp_header != NULL) {
-                computeUdpChecksum(ip_header, (unsigned short *)udp_header);
+                calcUdpChecksum(ip_header, (unsigned short *)udp_header);
             } else if (tcp_header != NULL) {
                 cout << "tcp ttl?" << (unsigned int)tcp_header->th_off << endl;
-                computeTcpChecksum(ip_header, (unsigned short *)tcp_header);
+                calcTcpChecksum(ip_header, (unsigned short *)tcp_header);
             }
         }
 
         void recomputeTTL() {
             cout << "checksum in decrease TTL before: " << ntohs(ip_header->check) << endl;
             decreaseTTL();
-            computeIpChecksum(ip_header);
+            calcIpChecksum(ip_header);
             compute_payload_checksum();
             cout << "checksum in decrease TTL after: " << ntohs(ip_header->check) << endl;
         }

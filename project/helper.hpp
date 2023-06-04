@@ -24,48 +24,34 @@ inline void checkFailure(int status, string msg)
     }
 }
 
-inline unsigned short computeChecksum(unsigned short *addr, unsigned int count)
+inline unsigned short calcChecksum(unsigned short *inputData, unsigned int byteCount)
 {
-    // Initialize sum
-    unsigned long totalSum = 0;
+    // Initialize sum and identify data endpoint
+    unsigned long sum = 0;
+    auto addrEnd = inputData + byteCount / 2;
 
-    // Calculate end address of the data
-    auto addrEnd = addr + count / 2;
+    // Apply STL's accumulate to compute sum
+    sum = std::accumulate(inputData, addrEnd, sum);
+    
+    // Add in last byte for odd byteCount
+    if (byteCount % 2) sum += (*addrEnd & htons(0xFF00));
+    
+    // Convert 32-bit sum to 16-bit
+    while (sum >> 16) sum = (sum & 0xffff) + (sum >> 16);
 
-    // Compute sum using accumulate function from STL
-    totalSum = std::accumulate(addr, addrEnd, totalSum);
-
-    // If count is odd, add the last byte after padding
-    if (count % 2)
-    {
-        totalSum += (*addrEnd & htons(0xFF00));
-    }
-
-    // Fold 32-bit sum to 16 bits
-    while (totalSum >> 16)
-    {
-        totalSum = (totalSum & 0xffff) + (totalSum >> 16);
-    }
-
-    // Compute one's complement
-    totalSum = ~totalSum;
-
-    // Return the checksum
-    return static_cast<unsigned short>(totalSum);
+    // Compute and return one's complement as checksum
+    sum = ~sum;
+    return static_cast<unsigned short>(sum);
 }
 
-inline unsigned short computeIpChecksum(struct iphdr *iphdrp)
+inline unsigned short calcIpChecksum(struct iphdr *ipHeader)
 {
-    // Reset the checksum in IP header
-    iphdrp->check = 0;
+    // Initialize checksum to zero in IP header and compute using calcChecksum
+    ipHeader->check = 0;
+    unsigned short checksum = calcChecksum((unsigned short *)ipHeader, ipHeader->ihl << 2);
 
-    // Calculate checksum using previously defined function
-    unsigned short checksum = computeChecksum((unsigned short *)iphdrp, iphdrp->ihl << 2);
-
-    // Assign the computed checksum back to the IP header
-    iphdrp->check = checksum;
-
-    // Return the checksum
+    // Reassign the computed checksum to the IP header and return it
+    ipHeader->check = checksum;
     return checksum;
 }
 
@@ -89,121 +75,93 @@ inline vector<string> split(string str, char delimiter)
     return internal;
 }
 
-inline unsigned short computeTcpChecksum(struct iphdr *pIph, unsigned short *ipPayload)
+inline unsigned short calcTcpChecksum(struct iphdr *ipHeader, unsigned short *ipPayloadData)
 {
-    // Initialize sum
+    // Start with a zero sum and derive TCP length
     unsigned long sum = 0;
+    unsigned short tcpLength = ntohs(ipHeader->tot_len) - (ipHeader->ihl << 2);
 
-    // Calculate the TCP length
-    unsigned short tcpLen = ntohs(pIph->tot_len) - (pIph->ihl << 2);
-
-    // Point to the TCP header
-    struct tcphdr *tcpHeader = (struct tcphdr *)(ipPayload);
+    // Get TCP header reference
+    struct tcphdr *tcpHeader = (struct tcphdr *)(ipPayloadData);
 
     // Lambda function to split and add IP
     auto ipSum = [](unsigned long ip) -> unsigned long {
         return ((ip >> 16) & 0xFFFF) + (ip & 0xFFFF);
     };
 
-    // Add pseudo header
-    // Add source IP
-    sum += ipSum(pIph->saddr);
-
-    // Add destination IP
-    sum += ipSum(pIph->daddr);
-
-    // Add protocol and reserved: 6
+    // Include pseudo header (source IP, destination IP, protocol, and length) in sum
+    sum += ipSum(ipHeader->saddr);
+    sum += ipSum(ipHeader->daddr);
     sum += htons(IPPROTO_TCP);
+    sum += htons(tcpLength);
 
-    // Add length
-    sum += htons(tcpLen);
-
-    // Reset the checksum in TCP header
+    // Set TCP header checksum to zero and compute sum with IP payload
     tcpHeader->check = 0;
-
-    // Add IP payload
-    auto startPayload = ipPayload;
-    auto endPayload = startPayload + tcpLen / 2;
+    auto startPayload = ipPayloadData;
+    auto endPayload = startPayload + tcpLength / 2;
     sum += std::accumulate(startPayload, endPayload, 0);
 
-    // If there is any leftover byte, add it into the sum
-    if (tcpLen % 2) {
-        sum += ((*endPayload) & htons(0xFF00));
-    }
+    // Address any extra byte
+    if (tcpLength % 2) sum += ((*endPayload) & htons(0xFF00));
 
-    // Fold 32-bit sum to 16 bits
-    while (sum >> 16) {
-        sum = (sum & 0xffff) + (sum >> 16);
-    }
+    // Convert 32-bit sum to 16 bits
+    while (sum >> 16) sum = (sum & 0xffff) + (sum >> 16);
     sum = ~sum;
 
-    // Assign computed checksum to TCP header
+    // Update checksum in TCP header and return it
     tcpHeader->check = (unsigned short)sum;
-
-    // Return checksum
     return (unsigned short)sum;
 }
 
-inline unsigned short computeUdpChecksum(struct iphdr *pIph, unsigned short *udphdr)
+inline unsigned short calcUdpChecksum(struct iphdr *ipHeader, unsigned short *udpHeader)
 {
-    // Initialize sum variable
+    // Start with a zero sum and get UDP header reference
     unsigned long sum = 0;
+    struct udphdr *udpHeaderPtr = (struct udphdr *)(udpHeader);
 
-    // Point to the UDP header
-    struct udphdr *udpHeaderPtr = (struct udphdr *)(udphdr);
-
-    // Obtain the UDP length
-    unsigned short udpLen = htons(udpHeaderPtr->len);
+    // Retrieve UDP length
+    unsigned short udpLength = htons(udpHeaderPtr->len);
 
     // Lambda function to split and add IP
     auto ipSum = [](unsigned long ip) -> unsigned long {
         return ((ip >> 16) & 0xFFFF) + (ip & 0xFFFF);
     };
 
-    // Add pseudo header
-    // Add source IP
-    sum += ipSum(pIph->saddr);
-
-    // Add destination IP
-    sum += ipSum(pIph->daddr);
-
-    // Add protocol and reserved: 17
+    // Include pseudo header (source IP, destination IP, protocol, and length) in sum
+    sum += ipSum(ipHeader->saddr);
+    sum += ipSum(ipHeader->daddr);
     sum += htons(IPPROTO_UDP);
-
-    // Add length
     sum += udpHeaderPtr->len;
 
-    // Reset the checksum in UDP header
+    // Set UDP header checksum to zero and compute sum with IP payload
     udpHeaderPtr->check = 0;
-
-        // Add IP payload
-    auto startPayload = udphdr;
-    auto endPayload = startPayload + udpLen / 2;
+    auto startPayload = udpHeader;
+    auto endPayload = startPayload + udpLength / 2;
     sum += std::accumulate(startPayload, endPayload, 0);
 
-    // If there is any leftover byte, add it into the sum
-    if (udpLen % 2) {
-        sum += ((*endPayload) & htons(0xFF00));
-    }
+    // Address any extra byte
+    if (udpLength % 2) sum += ((*endPayload) & htons(0xFF00));
 
-    // Fold 32-bit sum to 16 bits
-    while (sum >> 16) {
-        sum = (sum & 0xffff) + (sum >> 16);
-    }
+    // Convert 32-bit sum to 16 bits
+    while (sum >> 16) sum = (sum & 0xffff) + (sum >> 16);
     sum = ~sum;
 
-    // Assign computed checksum to UDP header and handle special case of zero
-    unsigned short udpChecksumResult = ((unsigned short)sum == 0x0000) ? 0xFFFF : (unsigned short)sum;
-    udpHeaderPtr->check = udpChecksumResult;
+    // Update checksum in UDP header with special case of zero handled
+    if ((unsigned short)sum == 0x0000) {
+        udpHeaderPtr->check = 0xFFFF;
+    }
+    else {
+        udpHeaderPtr->check = (unsigned short)sum;
+    }
 
     // Return checksum
-    return udpChecksumResult;
+    return udpHeaderPtr->check;
 }
 
 inline bool checkCorruptedIP(struct iphdr *ip_header)
 {
     unsigned short cur_checksum = (unsigned short)(ip_header->check);
-    unsigned short computed_check = computeIpChecksum(ip_header);
+    unsigned short computed_check = calcIpChecksum(ip_header);
     std::cout << "Checksum: " << ntohs(ip_header->check) << std::endl;
     cout << cur_checksum << endl;
     cout << computed_check << endl;
@@ -224,7 +182,7 @@ inline bool checkCorruptedUDP(struct iphdr *ip_header, unsigned short *udp_heade
     struct udphdr *udp_header_struct = (struct udphdr *)(udp_header);
     cout << "UDP Checksum: " << ntohs(udp_header_struct->check) << endl;
     unsigned short cur_checksum = static_cast<unsigned short>(udp_header_struct->check);
-    auto computed_check = computeUdpChecksum(ip_header, udp_header);
+    auto computed_check = calcUdpChecksum(ip_header, udp_header);
     cout << cur_checksum << endl;
     cout << computed_check << endl;
     udp_header_struct->check = cur_checksum;
@@ -244,7 +202,7 @@ inline bool checkCorruptedTCP(struct iphdr *ip_header, unsigned short *tcp_heade
 {
     struct tcphdr *tcp_header_struct = (struct tcphdr *)(tcp_header);
     unsigned short cur_checksum = static_cast<unsigned short>(tcp_header_struct->check);
-    auto computed_check = computeTcpChecksum(ip_header, tcp_header);
+    auto computed_check = calcTcpChecksum(ip_header, tcp_header);
     ;
     cout << cur_checksum << endl;
     cout << computed_check << endl;
