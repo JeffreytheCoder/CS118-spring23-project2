@@ -24,33 +24,31 @@ inline void checkFailure(int status, string msg)
     }
 }
 
-inline unsigned short calcChecksum(unsigned short *inputData, unsigned int byteCount)
+inline unsigned short calcIpChecksum(struct iphdr *ipHeader)
 {
+    // Initialize checksum to zero in IP header
+    ipHeader->check = 0;
+
     // Initialize sum and identify data endpoint
     unsigned long sum = 0;
+    unsigned int byteCount = ipHeader->ihl << 2;
+    unsigned short *inputData = (unsigned short *)ipHeader;
     auto addrEnd = inputData + byteCount / 2;
 
     // Apply STL's accumulate to compute sum
     sum = std::accumulate(inputData, addrEnd, sum);
-    
+
     // Add in last byte for odd byteCount
     if (byteCount % 2) sum += (*addrEnd & htons(0xFF00));
-    
+
     // Convert 32-bit sum to 16-bit
     while (sum >> 16) sum = (sum & 0xffff) + (sum >> 16);
 
-    // Compute and return one's complement as checksum
+    // Compute one's complement as checksum
     sum = ~sum;
-    return static_cast<unsigned short>(sum);
-}
 
-inline unsigned short calcIpChecksum(struct iphdr *ipHeader)
-{
-    // Initialize checksum to zero in IP header and compute using calcChecksum
-    ipHeader->check = 0;
-    unsigned short checksum = calcChecksum((unsigned short *)ipHeader, ipHeader->ihl << 2);
-
-    // Reassign the computed checksum to the IP header and return it
+    // Assign the computed checksum to the IP header and return it
+    unsigned short checksum = static_cast<unsigned short>(sum);
     ipHeader->check = checksum;
     return checksum;
 }
